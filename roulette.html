@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Bring Roulette 🔫</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0e0e11;
+    --card:#16161c;
+    --ink:#eee;
+    --field:#222;
+    --panel:#0f0f14;
+    --ok:#19c37d;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    margin:0;
+    padding:16px;
+  }
+  .app{
+    background:var(--card);
+    padding:26px;
+    border-radius:14px;
+    width:min(380px, 100%);
+    box-shadow:0 0 40px rgba(0,0,0,.6);
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  h1{margin:0 0 6px;font-size:22px}
+  .subtitle{font-size:13px;opacity:.72;margin-bottom:16px}
+  .grid{display:grid;gap:10px}
+  input{
+    width:100%;
+    padding:12px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.06);
+    background:var(--field);
+    color:#fff;
+    outline:none;
+    font-size:16px;
+  }
+  input:disabled{opacity:.55}
+
+  button{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:12px;
+    font-size:16px;
+    font-weight:900;
+    cursor:pointer;
+    transition:transform .04s ease, opacity .2s ease;
+    background:var(--ok);
+    color:#07150f;
+  }
+  button:active{transform:scale(.99)}
+  button:disabled{opacity:.55;cursor:not-allowed}
+
+  .status{
+    margin-top:10px;
+    font-size:13px;
+    opacity:.8;
+    min-height:18px;
+  }
+
+  .rouletteWrap{
+    margin:14px 0 8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .cylinder{
+    width:96px;
+    height:96px;
+    border-radius:999px;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.08), rgba(255,255,255,0) 62%),
+      radial-gradient(circle at 50% 50%, #101016 0 44%, #0b0b10 45% 100%);
+    border:1px solid rgba(255,255,255,.1);
+    position:relative;
+    box-shadow:inset 0 0 18px rgba(0,0,0,.7), 0 10px 25px rgba(0,0,0,.55);
+    display:none;
+  }
+
+  .chamber{
+    position:absolute;
+    width:16px;
+    height:16px;
+    border-radius:999px;
+    background:#0a0a0f;
+    border:1px solid rgba(255,255,255,.08);
+    left:50%;
+    top:50%;
+    transform-origin:0 0;
+    box-shadow:inset 0 0 10px rgba(0,0,0,.9);
+  }
+  .bullet{
+    background:
+      radial-gradient(circle at 35% 35%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%),
+      linear-gradient(135deg, #c7b16a, #8a6e2d);
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 0 10px rgba(199,177,106,.25);
+  }
+
+  .spin{animation:spin .85s linear infinite;}
+  @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+  .result{
+    margin-top:14px;
+    background:var(--panel);
+    border-radius:12px;
+    padding:14px;
+    display:none;
+    text-align:left;
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin:10px 0;
+    gap:12px;
+  }
+  .label{opacity:.75;font-size:13px}
+  .price{
+    font-size:22px;
+    font-weight:950;
+    cursor:pointer;
+    user-select:none;
+    padding:4px 8px;
+    border-radius:10px;
+    transition:transform .06s ease, background .15s ease;
+  }
+  .price:hover{background:rgba(255,255,255,.06)}
+  .price:active{transform:scale(.98)}
+  .tiny{
+    opacity:.58;
+    font-size:12px;
+    margin-top:8px;
+    text-align:center
+  }
+
+  .gun{
+    display:inline-block;
+    transform-origin:50% 70%;
+  }
+  @keyframes shoot{
+    0%{transform:translate(0,0) rotate(0deg)}
+    20%{transform:translate(10px,-10px) rotate(-14deg)}
+    55%{transform:translate(-5px,3px) rotate(7deg)}
+    100%{transform:translate(0,0) rotate(0deg)}
+  }
+
+  .burst{
+    position:absolute;
+    font-size:18px;
+    opacity:0;
+    pointer-events:none;
+    animation:burst 900ms ease-out forwards;
+    filter:drop-shadow(0 6px 8px rgba(0,0,0,.5));
+  }
+  @keyframes burst{
+    0%{transform:translate(0,0) scale(.9) rotate(0deg); opacity:0}
+    18%{opacity:1}
+    100%{transform:translate(var(--dx), var(--dy)) scale(1.25) rotate(var(--dr)); opacity:0}
+  }
+</style>
+</head>
+
+<body>
+<div class="app" id="app">
+  <h1>BRING ROULETTE <span class="gun" id="gun">🔫</span></h1>
+  <div class="subtitle">Spin the cylinder. Hope for mercy.</div>
+
+  <div class="grid">
+    <input id="postnr" placeholder="POSTNR" inputmode="numeric" disabled />
+    <input id="weight" placeholder="KG" inputmode="decimal" disabled />
+
+    <div class="rouletteWrap">
+      <div class="cylinder" id="cylinder" aria-hidden="true"></div>
+    </div>
+
+    <button id="calcBtn" disabled>BRING IT</button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="result" id="result">
+    <div class="row">
+      <div class="label">Brutto</div>
+      <div class="price" id="brutto"></div>
+    </div>
+    <div class="row">
+      <div class="label">Safe (+10%)</div>
+      <div class="price" id="safe"></div>
+    </div>
+    <div class="tiny" id="debugTiny"></div>
+  </div>
+</div>
+
+<script>
+  const SHEET_URL = "https://docs.google.com/spreadsheets/d/1wo18MpkaFxArbBFzir9a9FyHKvu95FNY/export?format=xlsx";
+  const HEADER_ROW_INDEX = 2;
+  const DATA_START_ROW_INDEX = 3;
+  const POSTNR_COL_INDEX = 4;
+
+  let grid = [];
+  let weightCols = [];
+  let isLoaded = false;
+  let bulletIndex = 0;
+
+  const el = id => document.getElementById(id);
+
+  function setStatus(msg){ el("status").textContent = msg || ""; }
+  function round50(x){ return Math.round(x / 50) * 50; }
+  function parseWeightInput(v){
+    const n = parseFloat(String(v || "").replace(",", "."));
+    return Number.isFinite(n) ? n : null;
+  }
+  function parseRangeLabel(labelRaw){
+    const s = String(labelRaw || "").trim().toLowerCase();
+    if (!s) return null;
+    const t = s.replace(/\s+/g,"").replace(/\./g,"").replace(/kg$/,"kg");
+    const mSingle = t.match(/^(\d+(?:\.\d+)?)kg$/);
+    if (mSingle){
+      const v = parseFloat(mSingle[1]);
+      return {minKg:v, maxKg:v, label:labelRaw};
+    }
+    const mRange = t.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)kg$/);
+    if (mRange){
+      const a = parseFloat(mRange[1]);
+      const b = parseFloat(mRange[2]);
+      if (Number.isFinite(a) && Number.isFinite(b)){
+        return {minKg:Math.min(a,b), maxKg:Math.max(a,b), label:labelRaw};
+      }
+    }
+    return null;
+  }
+  function buildWeightColumns(){
+    weightCols = [];
+    const header = grid[HEADER_ROW_INDEX] || [];
+    for (let col = 0; col < header.length; col++){
+      const parsed = parseRangeLabel(header[col]);
+      if (parsed) weightCols.push({colIndex:col, ...parsed});
+    }
+    weightCols.sort((a,b) => (a.minKg - b.minKg) || (a.maxKg - b.maxKg));
+  }
+  function findWeightColumn(kg){
+    for (const c of weightCols){
+      if (kg >= c.minKg && kg <= c.maxKg) return c;
+    }
+    if (!weightCols.length) return null;
+    if (kg < weightCols[0].minKg) return weightCols[0];
+    if (kg > weightCols[weightCols.length-1].maxKg) return weightCols[weightCols.length-1];
+    for (let i=0;i<weightCols.length;i++){
+      if (kg < weightCols[i].minKg) return weightCols[i];
+    }
+    return weightCols[weightCols.length-1];
+  }
+  function findRowByPostnr(postnr){
+    for (let r = DATA_START_ROW_INDEX; r < grid.length; r++){
+      const row = grid[r];
+      const v = row?.[POSTNR_COL_INDEX];
+      const pn = parseInt(v, 10);
+      if (pn === postnr) return row;
+    }
+    return null;
+  }
+
+  function buildCylinder(){
+    const cyl = el("cylinder");
+    cyl.innerHTML = "";
+    const chambers = 6;
+    const radius = 34;
+    bulletIndex = Math.floor(Math.random() * chambers);
+    for (let i=0;i<chambers;i++){
+      const d = document.createElement("div");
+      d.className = "chamber" + (i === bulletIndex ? " bullet" : "");
+      const angle = (i / chambers) * (Math.PI * 2);
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      d.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+      cyl.appendChild(d);
+    }
+  }
+
+  function startLoadingState(){
+    el("cylinder").style.display = "block";
+    el("cylinder").classList.add("spin");
+    buildCylinder();
+    setStatus("Spinning the cylinder…");
+    el("calcBtn").disabled = true;
+    el("postnr").disabled = true;
+    el("weight").disabled = true;
+    el("result").style.display = "none";
+  }
+
+  function readyState(){
+    el("cylinder").classList.remove("spin");
+    el("calcBtn").disabled = false;
+    el("postnr").disabled = false;
+    el("weight").disabled = false;
+    isLoaded = true;
+    setStatus("");
+  }
+
+  async function loadPrices(){
+    startLoadingState();
+    try{
+      const res = await fetch(SHEET_URL, {cache:"no-store"});
+      if (!res.ok) throw new Error("fetch failed");
+      const buf = await res.arrayBuffer();
+      const wb = XLSX.read(buf, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      grid = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
+      buildWeightColumns();
+      if (!weightCols.length) throw new Error("no weight cols");
+      readyState();
+    }catch(e){
+      el("cylinder").classList.remove("spin");
+      setStatus("Failed to load. Bring survived.");
+      console.error(e);
+    }
+  }
+
+  function shootGun(){
+    const g = el("gun");
+    g.style.animation = "none";
+    void g.offsetWidth;
+    g.style.animation = "shoot 220ms ease-out";
+    setTimeout(() => { g.style.animation = ""; }, 260);
+  }
+
+  function burstSkullsAndBlood(){
+    const app = el("app");
+    const rect = app.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = 92;
+
+    const skulls = 10;
+    const blood = 12;
+
+    const spawn = (emoji) => {
+      const s = document.createElement("div");
+      s.className = "burst";
+      s.textContent = emoji;
+
+      const dx = (Math.random() * 2 - 1) * 150;
+      const dy = (Math.random() * 2 - 1) * 120 + 35;
+      const dr = (Math.random() * 2 - 1) * 140;
+
+      s.style.left = (cx + (Math.random()*70-35)) + "px";
+      s.style.top  = (cy + (Math.random()*24-12)) + "px";
+      s.style.setProperty("--dx", dx + "px");
+      s.style.setProperty("--dy", dy + "px");
+      s.style.setProperty("--dr", dr + "deg");
+
+      app.appendChild(s);
+      setTimeout(() => s.remove(), 950);
+    };
+
+    for (let i=0;i<skulls;i++) spawn("💀");
+    for (let i=0;i<blood;i++) spawn("🩸");
+  }
+
+  function copyText(text){
+    navigator.clipboard?.writeText(String(text)).catch(()=>{});
+  }
+
+  function calc(){
+    if (!isLoaded) return;
+
+    shootGun();
+    burstSkullsAndBlood();
+
+    el("cylinder").classList.add("spin");
+    buildCylinder();
+
+    const postnr = parseInt(el("postnr").value, 10);
+    const kg = parseWeightInput(el("weight").value);
+
+    setTimeout(() => el("cylinder").classList.remove("spin"), 700);
+
+    if (!Number.isFinite(postnr)){
+      setStatus("Invalid POSTNR.");
+      el("result").style.display = "none";
+      return;
+    }
+    if (kg === null || kg <= 0){
+      setStatus("Invalid KG.");
+      el("result").style.display = "none";
+      return;
+    }
+
+    const row = findRowByPostnr(postnr);
+    if (!row){
+      setStatus("POSTNR not found.");
+      el("result").style.display = "none";
+      return;
+    }
+
+    const col = findWeightColumn(kg);
+    if (!col){
+      setStatus("No weight bracket.");
+      el("result").style.display = "none";
+      return;
+    }
+
+    const nettoRaw = row[col.colIndex];
+    const netto = parseFloat(String(nettoRaw).replace(",", "."));
+    if (!Number.isFinite(netto)){
+      setStatus("No price for that weight.");
+      el("result").style.display = "none";
+      return;
+    }
+
+    const brutto = round50(netto * 1.5);
+    const safe = round50(brutto * 1.10);
+
+    el("brutto").textContent = `${brutto} kr`;
+    el("safe").textContent = `${safe} kr`;
+    el("debugTiny").textContent = `${col.label} • Netto ${netto}`;
+    el("result").style.display = "block";
+    setStatus("");
+  }
+
+  el("calcBtn").addEventListener("click", calc);
+
+  ["postnr","weight"].forEach(id => {
+    el(id).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") calc();
+    });
+  });
+
+  ["brutto","safe"].forEach(id => {
+    el(id).addEventListener("click", () => {
+      const t = el(id).textContent || "";
+      shootGun();
+      copyText(t.replace(/\s+/g," ").trim());
+    });
+  });
+
+  window.addEventListener("DOMContentLoaded", () => {
+    loadPrices();
+  });
+</script>
+</body>
+</html>
