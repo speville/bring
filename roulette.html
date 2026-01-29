@@ -215,7 +215,7 @@
   const HEADER_ROW_INDEX = 2;
   const DATA_START_ROW_INDEX = 3;
   const POSTNR_COL_INDEX = 4;
-  const CITY_COL_INDEX = 5; // column F (0-based)
+  const CITY_COL_INDEX = 5;
 
   let grid = [];
   let weightCols = [];
@@ -295,6 +295,15 @@
       d.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
       cyl.appendChild(d);
     }
+  }
+
+  function removeBullet(){
+    const b = document.querySelector(".chamber.bullet");
+    if (b) b.classList.remove("bullet");
+  }
+
+  function reloadBullet(){
+    buildCylinder();
   }
 
   function startLoadingState(){
@@ -380,19 +389,27 @@
     navigator.clipboard?.writeText(String(text)).catch(()=>{});
   }
 
+  function safeCity(v){
+    const s = String(v ?? "").trim();
+    return s ? s : "CITY";
+  }
+
   function calc(){
     if (!isLoaded) return;
 
     shootGun();
     burstSkullsAndBlood();
+    removeBullet();
 
     el("cylinder").classList.add("spin");
-    buildCylinder();
 
     const postnr = parseInt(el("postnr").value, 10);
     const kg = parseWeightInput(el("weight").value);
 
-    setTimeout(() => el("cylinder").classList.remove("spin"), 700);
+    setTimeout(() => {
+      el("cylinder").classList.remove("spin");
+      reloadBullet();
+    }, 700);
 
     if (!Number.isFinite(postnr)){
       setStatus("Invalid POSTNR.");
@@ -412,8 +429,7 @@
       return;
     }
 
-    const city = String(row?.[CITY_COL_INDEX] ?? "").trim();
-    const cityText = city ? city.toUpperCase() : "UNKNOWN";
+    const city = safeCity(row?.[CITY_COL_INDEX]);
 
     const col = findWeightColumn(kg);
     if (!col){
@@ -435,7 +451,7 @@
 
     el("brutto").textContent = `${brutto} kr`;
     el("safe").textContent = `${safe} kr`;
-    el("debugTiny").textContent = `${cityText} • ${col.label} • Netto ${netto}`;
+    el("debugTiny").textContent = `${city} • ${col.label} • Netto ${netto}`;
     el("result").style.display = "block";
     setStatus("");
   }
