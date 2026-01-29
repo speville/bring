@@ -86,12 +86,36 @@
     height:96px;
     border-radius:999px;
     background:
-      radial-gradient(circle at 50% 50%, rgba(255,255,255,.08), rgba(255,255,255,0) 62%),
-      radial-gradient(circle at 50% 50%, #101016 0 44%, #0b0b10 45% 100%);
-    border:1px solid rgba(255,255,255,.1);
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
+      radial-gradient(circle at 50% 50%, #1a1a24 0 44%, #0c0c12 45% 100%);
+    border:1px solid rgba(255,255,255,.22);
     position:relative;
-    box-shadow:inset 0 0 18px rgba(0,0,0,.7), 0 10px 25px rgba(0,0,0,.55);
+
+    /* ✅ fix: ensure pseudo-element can sit behind children cleanly */
+    isolation:isolate;
+
+    box-shadow:
+      inset 0 0 22px rgba(0,0,0,.55),
+      0 10px 25px rgba(0,0,0,.55),
+      0 0 0 1px rgba(255,255,255,.06);
     display:none;
+  }
+
+  /* subtle glossy rim (kept, but placed BEHIND chambers) */
+  .cylinder::after{
+    content:"";
+    position:absolute;
+    inset:8px;
+    border-radius:999px;
+
+    /* slightly toned down so it doesn't fight the slots */
+    border:1px solid rgba(255,255,255,.06);
+    box-shadow: inset 0 0 12px rgba(255,255,255,.03);
+
+    pointer-events:none;
+
+    /* ✅ fix: behind the bullet slots */
+    z-index:0;
   }
 
   .chamber{
@@ -99,13 +123,17 @@
     width:16px;
     height:16px;
     border-radius:999px;
-    background:#0a0a0f;
-    border:1px solid rgba(255,255,255,.08);
+    background:#11111a;
+    border:1px solid rgba(255,255,255,.16);
     left:50%;
     top:50%;
     transform-origin:0 0;
-    box-shadow:inset 0 0 10px rgba(0,0,0,.9);
+    box-shadow: inset 0 0 10px rgba(0,0,0,.7);
+
+    /* ✅ fix: above rim */
+    z-index:1;
   }
+
   .bullet{
     background:
       radial-gradient(circle at 35% 35%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%),
