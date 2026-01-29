@@ -215,6 +215,7 @@
   const HEADER_ROW_INDEX = 2;
   const DATA_START_ROW_INDEX = 3;
   const POSTNR_COL_INDEX = 4;
+  const CITY_COL_INDEX = 5; // column F (0-based)
 
   let grid = [];
   let weightCols = [];
@@ -411,6 +412,9 @@
       return;
     }
 
+    const city = String(row?.[CITY_COL_INDEX] ?? "").trim();
+    const cityText = city ? city.toUpperCase() : "UNKNOWN";
+
     const col = findWeightColumn(kg);
     if (!col){
       setStatus("No weight bracket.");
@@ -431,7 +435,7 @@
 
     el("brutto").textContent = `${brutto} kr`;
     el("safe").textContent = `${safe} kr`;
-    el("debugTiny").textContent = `${col.label} • Netto ${netto}`;
+    el("debugTiny").textContent = `${cityText} • ${col.label} • Netto ${netto}`;
     el("result").style.display = "block";
     setStatus("");
   }
